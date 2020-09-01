@@ -1,65 +1,68 @@
-const { readFileSync } = require('fs');
-const handlebars = require('handlebars');
-const sgMail = require('@sendgrid/mail');
+const { Webhook, MessageBuilder } = require('discord-webhook-node');
+const moment = require('moment');
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-const emailTemplate = handlebars.compile(
-  readFileSync('./views/emailLayout.hbs').toString(),
-);
-
-handlebars.registerHelper('playerTransaction', (player, bid) => {
-  let source = '';
-  let action;
-  let team;
-  if (player.type === 'add') {
-    action = '<span style="color: #1e824c">added</span>';
-    team = player.destination_team_name;
-    if (player.source_type === 'waivers') {
-      source = 'from waivers';
-      if (bid) {
-        source += ` for $${bid}`;
-      }
-    } else if (player.source_type === 'freeagents') {
-      source = 'from free agents';
-    }
-  } else {
-    action = '<span style="color: #aa0000">dropped</span>';
-    team = player.source_team_name;
-  }
-  return `${team} ${action} <span style="font-weight: bold">${player.name}</span> ${source}`;
-});
+const hook = new Webhook(process.env.WEBHOOK_URL);
 
 module.exports = class Notification {
-  constructor(user, mailer = sgMail) {
-    this.leagueTransactions = {};
-    this.mailer = mailer;
-    this.user = user;
+  constructor(hooker = hook) {
+    this.leagueTransactions = [];
+    this.hooker = hooker;
   }
 
-  addTransactions(league, transactions) {
+  addTransactions(transactions) {
     if (!transactions || !transactions.length) {
       return;
     }
-    this.leagueTransactions[league.name] = transactions;
+    this.leagueTransactions = transactions;
   }
 
   send() {
     if (!Object.entries(this.leagueTransactions).length) {
       return null;
     }
-    const message = {
-      to: this.user.email,
-      from: 'Fantasy Notify <notifications@fantasynotify.herokuapp.com>',
-      subject: `New transactions in ${Object.keys(this.leagueTransactions).join(
-        ', ',
-      )}`,
-      html: emailTemplate({
-        leagueTransactions: this.leagueTransactions,
-        domain: process.env.DOMAIN,
-        user: this.user,
-      }),
-    };
-    return this.mailer.send(message);
+
+    for (const transaction of this.leagueTransactions) {
+      let t = moment.unix(transaction.timestamp).format('llll');
+      let team;
+      let embed = new MessageBuilder()
+        .setColor('#00b0f4')
+        .setFooter(t);
+
+      for (const player of transaction.players) {
+        let source = '';
+        let action;
+        if (player.type === 'add') {
+          action = 'Added';
+          team = player.destination_team_name;
+          if (player.source_type === 'waivers') {
+            source = 'from waivers';
+          } else if (player.source_type === 'freeagents') {
+            source = 'from free agents';
+          }
+        } else {
+          action = 'Dropped';
+          team = player.source_team_name;
+          if (player.destination_type === 'waivers') {
+            source = 'to waivers';
+          } else if (player.destination_type === 'freeagents') {
+            source = 'to free agents';
+          }
+        }
+        embed.addField(`${action} ${source}`, player.name, false);
+      }
+      embed.setTitle(team);
+
+      (async () => {
+        try {
+          //
+          await this.hooker.send(embed);
+          console.log('Successfully sent webhook!');
+        }
+        catch (e) {
+          console.log(e.message);
+        };
+      })();
+    }
+    return null;
   }
 };

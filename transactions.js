@@ -11,7 +11,7 @@ function mapPlayers(players) {
       }
       return {
         ...transactionData,
-        name: playerTrans[0][2].name.full,
+        name: `${playerTrans[0][2].name.full}, ${playerTrans[0][4].display_position} (${playerTrans[0][3].editorial_team_abbr})`,
       };
     });
 }
@@ -28,11 +28,15 @@ async function getAll(league, user, httpLib = axios) {
     .map((entry) => entry[1].transaction)
     .filter((transaction) => transaction)
     .filter((transaction) => transaction[0].status === 'successful')
-    .map((transaction) => ({
-      bid: transaction[0].faab_bid,
-      key: transaction[0].transaction_key,
-      players: mapPlayers(transaction[1].players),
-    }));
+    .map((transaction) => {
+      return ({
+        action: transaction[0].type,
+        timestamp: transaction[0].timestamp,
+        bid: transaction[0].faab_bid,
+        key: transaction[0].transaction_key,
+        players: mapPlayers(transaction[1].players),
+      });
+    });
 }
 
 function filterNew(league, transactions) {

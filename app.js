@@ -42,8 +42,8 @@ app.get('/', controller.index);
 app.post('/signup', controller.signup);
 app.get('/auth/callback', controller.authCallback);
 app.get('/unsubscribe/:id', controller.unsubscribe);
-app.use(controller.handleError);
 
+app.use(controller.handleError);
 app
   .listen(process.env.PORT)
   .on('listening', () => console.log(`Listening on port ${process.env.PORT}`))
