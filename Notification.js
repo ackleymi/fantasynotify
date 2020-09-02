@@ -1,5 +1,5 @@
 const { Webhook, MessageBuilder } = require('discord-webhook-node');
-const moment = require('moment');
+const moment = require('moment-timezone');
 
 const hook = new Webhook(process.env.WEBHOOK_URL);
 
@@ -21,14 +21,15 @@ module.exports = class Notification {
       return null;
     }
 
-    for (const transaction of this.leagueTransactions) {
-      let t = moment.unix(transaction.timestamp).format('llll');
+    this.leagueTransactions.forEach(transaction => {
+      const t = moment.unix(transaction.timestamp).tz("America/New_York").format('llll');
+      console.log(t);
       let team;
-      let embed = new MessageBuilder()
+      const embed = new MessageBuilder()
         .setColor('#00b0f4')
         .setFooter(t);
 
-      for (const player of transaction.players) {
+      transaction.players.forEach(player => {
         let source = '';
         let action;
         if (player.type === 'add') {
@@ -49,8 +50,8 @@ module.exports = class Notification {
           }
         }
         embed.addField(`${action} ${source}`, player.name, false);
-      }
-      embed.setTitle(team);
+      });
+      embed.setTitle(`New transaction by ${team}`);
 
       (async () => {
         try {
@@ -62,7 +63,8 @@ module.exports = class Notification {
           console.log(e.message);
         };
       })();
-    }
+    });
+
     return null;
   }
 };

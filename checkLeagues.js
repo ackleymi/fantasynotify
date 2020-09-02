@@ -12,7 +12,6 @@ const theInterval = minutes * 60 * 1000;
 
 /* eslint-disable no-await-in-loop */
 async function run() {
-  console.log('start');
   const users = await User.find().exec();
   // eslint-disable-next-line no-restricted-syntax
   for (const user of users) {
@@ -26,7 +25,9 @@ async function run() {
       // eslint-disable-next-line no-restricted-syntax
       for (const league of user.leagues) {
         const allTransactions = await transactions.getAll(league, user);
+        // const toSend = allTransactions;
         const toSend = transactions.filterNew(league, allTransactions);
+
         console.log(`Found ${toSend.length} new transaction(s)`);
         notification.addTransactions(
           toSend.reverse(),
@@ -44,8 +45,6 @@ async function run() {
       }
     }
   }
-  console.log('done');
-
 }
 /* eslint-enable no-await-in-loop */
 process.on('SIGINT', () => {
